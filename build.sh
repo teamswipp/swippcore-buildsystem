@@ -130,14 +130,16 @@ if [[ $choices =~ "linux" ]]; then
 
 	pjobs[1]="_"
 	share/genbuild.sh build/build.h
+	todo=$(make -n 2> /dev/null | wc -l)
 	make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log & # Use half
-	build_dialog 20 ../make-qt.log ../make-qt.error $(make -n 2> /dev/null | wc -l) pjobs
+	build_dialog 20 ../make-qt.log ../make-qt.error $todo pjobs
 	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pushd src
 	pjobs[2]="_"
+	todo=$(make -n -f makefile.unix 2> /dev/null | grep "^\(cc\|g++\)" | wc -l)
 	make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
-	build_dialog 40 ../../make-console.log ../../make-console.error $(make -n -f makefile.unix 2> /dev/null | wc -l) pjobs
+	build_dialog 40 ../../make-console.log ../../make-console.error $todo pjobs
 	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	popd
