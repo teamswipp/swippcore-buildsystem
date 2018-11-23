@@ -22,6 +22,7 @@
 # flavours.
 
 repo="https://github.com/teamswipp/swippcore.git"
+return_code=0
 
 pushd () {
 	command pushd "$@" > /dev/null
@@ -79,11 +80,11 @@ install_dependencies() {
 	fi
 }
 
-# percentage_so_far, logfile, errfile, logfile_max_len, jobs
+# percentage_so_far, logfile, errfile, logfile_max_len, jobs, pid
 build_dialog() {
 	local -n arr=$5
 	range=($1)
-	progress=0
+	progress=$(cat $2 | wc -l)
 	span=$((${range[-1]}-${range[0]}))
 
 	for i in $(eval echo {0..${#arr[@]}}); do
@@ -105,18 +106,28 @@ build_dialog() {
 		       "Building native console wallet" ${arr[2]} \
 		       "Generating cross-platform QT wallet" ${arr[3]} \
 		       "Generating cross-platform console wallet" ${arr[4]}
+
+		if [ ! -d "/proc/$6" ]; then
+			sleep 0.5
+			return $return_code
+		fi
+
 		sleep 5
 
-		# Includes some general cases we don't want to count as errors
-		if (( $(cat $3 | grep -v "Project MESSAGE: INFO:" | grep -v " Warning:" \
-		    | grep -v "^ar:" | wc -l) > 0 )); then
-			return 1
+		if [ -f "$3" ] && [ -s "$3" ]; then
+			# Includes some general cases we don't want to count as errors
+			if (( $(cat $3 | grep -v "Project MESSAGE: INFO:" | grep -v " Warning:" \
+			    | grep -v "^ar:" | wc -l) > 0 )); then
+			    kill $6 &> /dev/null
+				return 1
+			fi
 		fi
 
 		progress=$(cat $2 | wc -l)
 	done
 
-	return 0
+	wait $6
+	return $return_code
 }
 
 trap cleanup EXIT
@@ -128,30 +139,51 @@ if [[ $choices =~ "linux" ]]; then
 	install_dependencies build-essential make g++ libboost-all-dev libssl1.0-dev libdb5.3++-dev \
 	                     libminiupnpc-dev libz-dev libcurl4-openssl-dev qt5-default \
 	                     qttools5-dev-tools
-	pushd build-linux/swippcore
+	pushd build-linux
+	pushd swippcore
 	pjobs=(_ 8 8 8 8)
-	qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log &
-	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 pjobs
+	{
+		qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log
+		return_code=$?
+	} &
+	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 pjobs $!
 	pjobs[0]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pjobs[1]="_"
 	share/genbuild.sh build/build.h
 	todo=$(make -n 2> /dev/null | wc -l)
-	make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log & # Use half
-	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo pjobs
+	{
+		make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log # Use half
+		return_code=$?
+	} &
+	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo pjobs $!
 	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pushd src
 	pjobs[2]="_"
 	todo=$(make -n -f makefile.unix 2> /dev/null | grep "^\(cc\|g++\)" | wc -l)
-	make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
-	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo pjobs
+	{
+		make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log # Use half
+		return_code=$?
+	} &
+	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo pjobs $!
 	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	popd
 	popd
-#	pjobs[3]="_"
-#	./build-components make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
-#	build_dialog 40 ../../make-console.log ../../make-console.error $(make -n -f makefile.unix 2> /dev/null | wc -l) pjobs
-#	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	pjobs[3]="_"
+	{
+		../build-components/swipp-linuxdeployqt.sh swippcore swipp-qt 2> linuxdeployqt-qt.log 1> /dev/null
+		return_code=$?
+	} &
+	build_dialog "$(echo {80..90})" linuxdeployqt-qt.log ".nolog" 85 pjobs $! # hard coded expected job size
+	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+
+	pjobs[4]="_"
+	{
+		../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-qt.log 1> /dev/null
+		return_code=$?
+	} &
+	build_dialog "$(echo {90..100})" linuxdeployqt-console.log ".nolog" 85 pjobs $! # hard coded expected job size
+	pjobs[4]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 fi
