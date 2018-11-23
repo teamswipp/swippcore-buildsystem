@@ -1,9 +1,11 @@
-Welcome to the Swipp build system
+Welcome to The Swipp Build System
 
 Copyright (c) 2018 The Swipp developers
 
-Distributed under the MIT/X11 software license, see the
-accompanying file COPYING.
+The Swipp Build System is free software: you can redistribute
+it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
 
 This build system allows you to build the core Swipp wallet for
 a number of operating systems and flavours. The build system is
