@@ -24,8 +24,12 @@
 # $2: Executable name
 
 if [[ $# -lt 2 ]]; then
-    echo "Please specify the full location of the swipp executable and executable name"
-    exit 0
+	echo "Please specify the full location of the swipp executable and executable name"
+	exit 0
+fi
+
+if [ -f "$2-x86_64.AppImage" ]; then
+	exit 0
 fi
 
 # Create AppDir FHS-like stucture
