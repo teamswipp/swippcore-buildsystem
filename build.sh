@@ -111,25 +111,25 @@ if [[ $choices =~ "linux" ]]; then
 	pushd build-linux/swippcore
 	pjobs=(_ 8 8 8 8)
 	qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log &
-	build_dialog 0 ../qmake.log ../qmake.error 0 pjobs
-	pjobs[0]=$(if (($? == 0)); then echo 3; else echo 2; fi)
+	build_dialog 0 ../qmake.log ../qmake.error 6 pjobs
+	pjobs[0]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pjobs[1]="_"
 	share/genbuild.sh build/build.h
 	make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log & # Use half
 	build_dialog 20 ../make-qt.log ../make-qt.error $(make -n 2> /dev/null | wc -l) pjobs
-	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 2; fi)
+	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pushd src
 	pjobs[2]="_"
 	make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
 	build_dialog 40 ../../make-console.log ../../make-console.error $(make -n -f makefile.unix 2> /dev/null | wc -l) pjobs
-	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 2; fi)
+	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	popd
 	popd
-	pjobs[3]="_"
-	./build-components make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
-	build_dialog 40 ../../make-console.log ../../make-console.error $(make -n -f makefile.unix 2> /dev/null | wc -l) pjobs
-	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 2; fi)
+#	pjobs[3]="_"
+#	./build-components make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
+#	build_dialog 40 ../../make-console.log ../../make-console.error $(make -n -f makefile.unix 2> /dev/null | wc -l) pjobs
+#	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 fi
