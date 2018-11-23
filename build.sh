@@ -89,7 +89,9 @@ build_dialog() {
 		       "Generating cross-platform console wallet" ${arr[4]}
 		sleep 5
 
-		if [ -s $3 ]; then
+		# Includes some general cases we don't want to count as errors
+		if (( $(cat $3 | grep -v "Project MESSAGE: INFO:" | grep -v " Warning:" \
+		    | grep -v "^ar:" | wc -l) > 0 )); then
 			return 1
 		fi
 	done
