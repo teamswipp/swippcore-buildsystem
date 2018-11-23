@@ -82,7 +82,9 @@ install_dependencies() {
 # percentage_so_far, logfile, errfile, logfile_max_len, jobs
 build_dialog() {
 	local -n arr=$5
+	range=($1)
 	progress=0
+	span=$((${range[-1]}-${range[0]}))
 
 	for i in $(eval echo {0..${#arr[@]}}); do
 		if [ ${arr[$i]} = "_" ]; then
@@ -91,11 +93,13 @@ build_dialog() {
 	done
 
 	while (( $progress < ${4} )); do
-		progress=$(cat $2 | wc -l)
-		arr[$i]="-$(((100*$progress)/$4))"
+		percent=$(((100*$progress)/$4))
+		percent=$(if (($percent > 100)); then echo 100; else echo $percent; fi) # clamp
+		arr[$i]="-$percent"
 		clear
 
-		dialog --title "Building Linux flavour" --mixedgauge " " 22 70 $1 \
+		dialog --title "Building Linux flavour [$progress/${4}]" --mixedgauge " " 22 70 \
+		       $((${range[0]}+($span*$percent)/100)) \
 		       "Creating build files from QMAKE file" ${arr[0]} \
 		       "Building native QT wallet" ${arr[1]} \
 		       "Building native console wallet" ${arr[2]} \
@@ -108,6 +112,8 @@ build_dialog() {
 		    | grep -v "^ar:" | wc -l) > 0 )); then
 			return 1
 		fi
+
+		progress=$(cat $2 | wc -l)
 	done
 
 	return 0
@@ -125,21 +131,21 @@ if [[ $choices =~ "linux" ]]; then
 	pushd build-linux/swippcore
 	pjobs=(_ 8 8 8 8)
 	qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log &
-	build_dialog 0 ../qmake.log ../qmake.error 6 pjobs
+	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 pjobs
 	pjobs[0]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pjobs[1]="_"
 	share/genbuild.sh build/build.h
 	todo=$(make -n 2> /dev/null | wc -l)
 	make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log & # Use half
-	build_dialog 20 ../make-qt.log ../make-qt.error $todo pjobs
+	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo pjobs
 	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pushd src
 	pjobs[2]="_"
 	todo=$(make -n -f makefile.unix 2> /dev/null | grep "^\(cc\|g++\)" | wc -l)
 	make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log & # Use half
-	build_dialog 40 ../../make-console.log ../../make-console.error $todo pjobs
+	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo pjobs
 	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	popd
