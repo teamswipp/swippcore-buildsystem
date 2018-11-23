@@ -1,0 +1,16 @@
+Welcome to the Swipp build system
+
+Copyright (c) 2018 The Swipp developers
+
+Distributed under the MIT/X11 software license, see the
+accompanying file COPYING.
+
+This build system allows you to build the core Swipp wallet for
+a number of operating systems and flavours. The build system is
+continously updated and integrated alongside new versions of the
+Swipp wallet.
+
+While it's not entirely clear, the Linux flavour not only builds
+native versions for the underlying Linux distribution, but also
+creates distribution independent binaries in the form of
+AppImages.
