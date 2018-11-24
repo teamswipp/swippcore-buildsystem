@@ -21,7 +21,8 @@
 # General build script for Swipp, supporting different platforms and
 # flavours.
 
-repo="https://github.com/teamswipp/swippcore.git"
+swipp_repo="https://github.com/teamswipp/swippcore.git"
+mxe_repo="https://github.com/mxe/mxe.git"
 return_code=0
 
 pushd () {
@@ -52,14 +53,15 @@ choose_flavours() {
 	return $?
 }
 
+#buildir_name, clone_dir, repo
 clone() {
 	if [ ! -d "build-$1" ]; then
-		mkdir build-linux
+		mkdir build-$1
 	fi
 
-	if [ ! -d "build-$1/swippcore" ]; then
+	if [ ! -d "build-$1/$2" ]; then
 		clear
-		git clone $repo build-$1/swippcore
+		git clone $3 build-$1/$2
 	fi
 }
 
@@ -135,7 +137,7 @@ dialog --textbox build-components/welcome.txt 22 70
 choices=$(choose_flavours)
 
 if [[ $choices =~ "linux" ]]; then
-	clone linux
+	clone linux swippcore $swipp_repo
 	install_dependencies build-essential make g++ libboost-all-dev libssl1.0-dev libdb5.3++-dev \
 	                     libminiupnpc-dev libz-dev libcurl4-openssl-dev qt5-default \
 	                     qttools5-dev-tools
