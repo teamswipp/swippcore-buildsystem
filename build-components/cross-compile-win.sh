@@ -27,47 +27,82 @@
 # make MXE_TARGETS="i686-w64-mingw32.static" qttools
 # make MXE_TARGETS="i686-w64-mingw32.static" curl
 #
-# Then just run this script the following way:
-# ./cross-compile-win.sh <path-to-mxe>
+# $1: Location of MXE
+# $2: Target (should be either i686-w64-mingw32.static or x86_64-w64-mingw32.static)
+# --compile: Compile main executable
+# --compile-dependencies: Compile dependencies
 
-if [ ! -d "$1" ]; then
-	echo ERROR: The directory $1 does not exist
-	exit 1
+if [ "$0" = "$BASH_SOURCE" ]; then
+	if [ ! -d "$1" ]; then
+		echo ERROR: The directory $1 does not exist
+		exit 1
+	fi
+
+	if [ -z "$2" ]; then
+		echo ERROR: No MXE target specified
+		exit 1
+	fi
+
+	arg_mxe_path=$1
+	arg_target=$2
 fi
 
-export PATH=$1/usr/bin:$PATH
-export PATH=$1/usr/i686-w64-mingw32.static/bin:$PATH
-MXE_INCLUDE_PATH=$1/usr/i686-w64-mingw32.static/include
-MXE_LIB_PATH=$1/usr/i686-w64-mingw32.static/lib
+PATH=$arg_mxe_path/usr/bin:$PATH
+PATH=$arg_mxe_path/usr/$arg_target/bin:$PATH
+MXE_INCLUDE_PATH=$arg_mxe_path/usr/$arg_target/include
+MXE_LIB_PATH=$arg_mxe_path/usr/$arg_target/lib
 
 if [ ! -d "$MXE_LIB_PATH" ]; then
 	echo ERROR: The directory $MXE_LIB_PATH does not exist
 	exit 1
 fi
 
-i686-w64-mingw32.static-qmake-qt5 \
-	BOOST_LIB_SUFFIX=-mt \
-	BOOST_THREAD_LIB_SUFFIX=_win32-mt \
-	BOOST_INCLUDE_PATH=$MXE_INCLUDE_PATH/boost \
-	BOOST_LIB_PATH=$MXE_LIB_PATH \
-	OPENSSL_INCLUDE_PATH=$MXE_INCLUDE_PATH/openssl \
-	OPENSSL_LIB_PATH=$MXE_LIB_PATH \
-	BDB_INCLUDE_PATH=$MXE_INCLUDE_PATH \
-	BDB_LIB_PATH=$MXE_LIB_PATH \
-	MINIUPNPC_INCLUDE_PATH=$MXE_INCLUDE_PATH \
-	MINIUPNPC_LIB_PATH=$MXE_LIB_PATH \
-	CURL_LIB_PATH=$MXE_LIB_PATH \
-	QMAKE_LRELEASE=$1/usr/i686-w64-mingw32.static/qt5/bin/lrelease swipp.pro
+win_qmake() {
+	$2-qt5 \
+		BOOST_LIB_SUFFIX=-mt \
+		BOOST_THREAD_LIB_SUFFIX=_win32-mt \
+		BOOST_INCLUDE_PATH=$MXE_INCLUDE_PATH/boost \
+		BOOST_LIB_PATH=$MXE_LIB_PATH \
+		OPENSSL_INCLUDE_PATH=$MXE_INCLUDE_PATH/openssl \
+		OPENSSL_LIB_PATH=$MXE_LIB_PATH \
+		BDB_INCLUDE_PATH=$MXE_INCLUDE_PATH \
+		BDB_LIB_PATH=$MXE_LIB_PATH \
+		MINIUPNPC_INCLUDE_PATH=$MXE_INCLUDE_PATH \
+		MINIUPNPC_LIB_PATH=$MXE_LIB_PATH \
+		CURL_LIB_PATH=$MXE_LIB_PATH \
+		QMAKE_LRELEASE=$1/usr/$2/qt5/bin/lrelease swipp.pro
+}
 
-cd src/leveldb
-TARGET_OS=NATIVE_WINDOWS make -j8 out-static/libleveldb.a out-static/libmemenv.a \
-	CC=$1/usr/bin/i686-w64-mingw32.static-gcc \
-	CXX=$1/usr/bin/i686-w64-mingw32.static-g++
+win_leveldb() {
+	pushd src/leveldb
+	TARGET_OS=NATIVE_WINDOWS make -j$(($(nproc)/2)) out-static/libleveldb.a out-static/libmemenv.a \
+		CC=$1/usr/bin/$2-gcc \
+		CXX=$1/usr/bin/$2-g++
+	popd
+}
 
-cd ../secp256k1
-./autogen.sh
-./configure --host=i686-w64-mingw32.static
-make -j8
+win_sec256k1() {
+	pushd ../secp256k1
+	./autogen.sh
+	./configure --host=$1
+	make -j$(($(nproc)/2))
+	popd
+}
 
-cd ../..
-make -j8 -f Makefile.Release
+win_main() {
+	make -j$(($(nproc)/2)) -f Makefile.Release
+}
+
+if [[ "$@" == "--compile-dependencies" ]]; then
+	make MXE_TARGETS="$arg_target" boost
+	make MXE_TARGETS="$arg_target" qtbase
+	make MXE_TARGETS="$arg_target" qttools
+	make MXE_TARGETS="$arg_target" curl
+fi
+
+if [[ "$@" == "--compile" ]]; then
+	win_qmake $arg_mxe_path $arg_target
+	win_leveldb $arg_mxe_path $arg_target
+	win_sec256k1 $arg_target
+	win_main
+fi
