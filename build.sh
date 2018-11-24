@@ -85,13 +85,12 @@ install_dependencies() {
 
 # percentage_so_far, logfile, errfile, logfile_max_len, jobs, pid
 build_dialog() {
-	local -n arr=$5
 	range=($1)
 	progress=$(cat $2 | wc -l)
 	span=$((${range[-1]}-${range[0]}))
 
-	for i in $(eval echo {0..${#arr[@]}}); do
-		if [ ${arr[$i]} = "_" ]; then
+	for i in $(eval echo {0..${#pjobs[@]}}); do
+		if [ "${pjobs[$i]}" = "_" ]; then
 			break
 		fi
 	done
@@ -99,18 +98,13 @@ build_dialog() {
 	while (( $progress < ${4} )); do
 		percent=$(((100*$progress)/$4))
 		percent=$(if (($percent > 100)); then echo 100; else echo $percent; fi) # clamp
-		arr[$i]="-$percent"
+		pjobs[$i]="-$percent"
 		clear
 
-		dialog --title "Building Linux flavour [$progress/${4}]" --mixedgauge " " 22 70 \
-		       $((${range[0]}+($span*$percent)/100)) \
-		       "Creating build files from QMAKE file" ${arr[0]} \
-		       "Building native QT wallet" ${arr[1]} \
-		       "Building native console wallet" ${arr[2]} \
-		       "Generating cross-platform QT wallet" ${arr[3]} \
-		       "Generating cross-platform console wallet" ${arr[4]}
+		dialog --title "$title [$progress/${4}]" --mixedgauge " " 22 70 \
+		       $((${range[0]}+($span*$percent)/100)) "${pjobs[@]}"
 
-		if [ ! -d "/proc/$6" ]; then
+		if [ ! -d "/proc/$5" ]; then
 			sleep 0.5
 			return $return_code
 		fi
@@ -138,55 +132,61 @@ dialog --textbox build-components/welcome.txt 22 70
 choices=$(choose_flavours)
 
 if [[ $choices =~ "linux" ]]; then
+	title="Building Linux flavour"
+	pjobs=("Creating build files from QMAKE file"     _ \
+	       "Building native QT wallet"                8 \
+	       "Building native console wallet"           8 \
+	       "Generating cross-platform QT wallet"      8 \
+	       "Generating cross-platform console wallet" 8)
+
 	clone linux swippcore $swipp_repo
 	install_dependencies build-essential make g++ libboost-all-dev libssl1.0-dev libdb5.3++-dev \
 	                     libminiupnpc-dev libz-dev libcurl4-openssl-dev qt5-default \
 	                     qttools5-dev-tools
 	pushd build-linux
 	pushd swippcore
-	pjobs=(_ 8 8 8 8)
 	{
 		qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log
 		return_code=$?
 	} &
-	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 pjobs $!
-	pjobs[0]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 $!
+	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
-	pjobs[1]="_"
+	pjobs[3]="_"
 	share/genbuild.sh build/build.h
 	todo=$(make -n 2> /dev/null | wc -l)
 	{
 		make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log # Use half
 		return_code=$?
 	} &
-	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo pjobs $!
-	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo $!
+	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	pushd src
-	pjobs[2]="_"
+	pjobs[5]="_"
 	todo=$(make -n -f makefile.unix 2> /dev/null | grep "^\(cc\|g++\)" | wc -l)
 	{
 		make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log # Use half
 		return_code=$?
 	} &
-	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo pjobs $!
-	pjobs[2]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo $!
+	pjobs[5]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
 	popd
 	popd
-	pjobs[3]="_"
+	pjobs[7]="_"
 	{
 		../build-components/swipp-linuxdeployqt.sh swippcore swipp-qt 2> linuxdeployqt-qt.log 1> /dev/null
 		return_code=$?
 	} &
-	build_dialog "$(echo {80..90})" linuxdeployqt-qt.log ".nolog" 85 pjobs $! # hard coded expected job size
-	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	build_dialog "$(echo {80..90})" linuxdeployqt-qt.log ".nolog" 85 $! # hard coded expected job size
+	pjobs[7]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 
-	pjobs[4]="_"
+	pjobs[9]="_"
 	{
 		../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-qt.log 1> /dev/null
 		return_code=$?
 	} &
-	build_dialog "$(echo {90..100})" linuxdeployqt-console.log ".nolog" 85 pjobs $! # hard coded expected job size
-	pjobs[4]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	build_dialog "$(echo {90..100})" linuxdeployqt-console.log ".nolog" 85 $! # hard coded expected job size
+	pjobs[9]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 fi
