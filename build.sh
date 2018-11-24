@@ -35,6 +35,7 @@ popd () {
 
 cleanup() {
 	kill $(jobs -p) &> /dev/null
+	clear
 }
 
 choose_flavours() {
