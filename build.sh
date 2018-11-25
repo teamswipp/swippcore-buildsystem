@@ -86,7 +86,7 @@ install_dependencies() {
 # percentage_so_far, logfile, errfile, logfile_max_len, jobs, pid
 build_dialog() {
 	range=($1)
-	progress=$(cat $2 | wc -l)
+	progress=$(eval "cat $2 | wc -l")
 	span=$((${range[-1]}-${range[0]}))
 
 	for i in $(eval echo {0..${#pjobs[@]}}); do
@@ -120,7 +120,7 @@ build_dialog() {
 			fi
 		fi
 
-		progress=$(cat $2 | wc -l)
+		progress=$(eval "cat $2 | wc -l")
 	done
 
 	wait $6
