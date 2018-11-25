@@ -95,6 +95,11 @@ build_dialog() {
 		fi
 	done
 
+	if [ $progress -eq 0 ]; then
+		pjobs[$i]="3"
+		dialog --title "$title" --mixedgauge " " 22 70 ${range[-1]} "${pjobs[@]}"
+	fi
+
 	while (( $progress < ${4} )); do
 		percent=$(((100*$progress)/$4))
 		percent=$(if (($percent > 100)); then echo 100; else echo $percent; fi) # clamp
