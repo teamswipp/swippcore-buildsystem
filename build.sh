@@ -48,7 +48,7 @@ choose_flavours() {
 	       win64 "Windows [64 bit]" 0
 
 	if [ $? -eq 1 ]; then
-		exit 1
+		exit 0
 	fi
 
 	return $?
@@ -81,6 +81,7 @@ install_dependencies() {
 	done
 
 	missingdeps=${missingdeps:1}
+
 	if [ -n "$missingdeps" ]; then
 		dialog --msgbox "The dependencies '$missingdeps' are missing and need to be installed " \
 		       "before running this script." 8 70
@@ -215,17 +216,17 @@ if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
 
 	todo=("make -n MXE_TARGETS=\"$targets\" cc | grep -o \"\[done\]\"" \
 	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) cc 2> ../makedep-cc.error 1> ../makedep-cc.log")
-	build_step 1 "$(echo {0..20})" ../makedep-cc.log ../makedep-cc.error
+	build_step 1 "$(echo {0..30})" ../makedep-cc.log ../makedep-cc.error
 
 	todo=("make -n MXE_TARGETS=\"$targets\" qtbase | grep -o \"\[done\]\"" \
 	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) qtbase 2> ../makedep-qtbase.error 1> ../makedep-qtbase.log")
-	build_step 3 "$(echo {2..50})" ../makedep-qtbase.log ../makedep-qtbase.error
+	build_step 3 "$(echo {30..50})" ../makedep-qtbase.log ../makedep-qtbase.error
 
 	todo=("make -n MXE_TARGETS=\"$targets\" qttools | grep -o \"\[done\]\"" \
 	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) qttools 2> ../makedep-qttools.error 1> ../makedep-qttools.log")
-	build_step 5 "$(echo {50..75})" ../makedep-qtbase.log ../makedep-qtbase.error
+	build_step 5 "$(echo {50..80})" ../makedep-qtbase.log ../makedep-qtbase.error
 
 	todo=("make -n MXE_TARGETS=\"$targets\" curl | grep -o \"\[done\]\"" \
-	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) curl 2> ../makedep-cul.error 1> ../makedep-cul.log")
-	build_step 7 "$(echo {50..75})" ../makedep-curl.log ../makedep-curl.error
+	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) curl 2> ../makedep-curl.error 1> ../makedep-curl.log")
+	build_step 7 "$(echo {80..100})" ../makedep-curl.log ../makedep-curl.error
 fi
