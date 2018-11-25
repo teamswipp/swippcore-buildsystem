@@ -184,7 +184,7 @@ if [[ $choices =~ "linux" ]]; then
 
 	pjobs[9]="_"
 	{
-		../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-qt.log 1> /dev/null
+		../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-console.log 1> /dev/null
 		return_code=$?
 	} &
 	build_dialog "$(echo {90..100})" linuxdeployqt-console.log ".nolog" 85 $! # hard coded expected job size
