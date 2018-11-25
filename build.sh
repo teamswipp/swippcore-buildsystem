@@ -185,3 +185,37 @@ if [[ $choices =~ "linux" ]]; then
 	todo=(85 "../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-console.log 1> /dev/null")
 	build_step 7 "$(echo {90..100})" linuxdeployqt-console.log linuxdeployqt-console.error
 fi
+
+if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
+	title="Preparing Windows dependencies"
+	pjobs=("Building GCC and build environment" 8 \
+	       "Building QT base dependencies"      8 \
+	       "Building QT tools dependencies"     8 \
+	       "Building CURL dependency"           8)
+
+	clone win32 swippcore $swipp_repo
+	clone win32 mxe $mxe_repo
+	pushd build-win32
+	pushd mxe
+
+	arg_mxe_path=.
+	arg_target=i686-w64-mingw32.static
+	targets="i686-w64-mingw32.static x86_64-w64-mingw32.static"
+	source "../../build-components/cross-compile-win.sh"
+
+	todo=("make -n MXE_TARGETS=\"$targets\" cc | grep -o \"\[done\]\"" \
+	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) cc 2> ../makedep-cc.error 1> ../makedep-cc.log")
+	build_step 1 "$(echo {0..20})" ../makedep-cc.log ../makedep-cc.error
+
+	todo=("make -n MXE_TARGETS=\"$targets\" qtbase | grep -o \"\[done\]\"" \
+	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) qtbase 2> ../makedep-qtbase.error 1> ../makedep-qtbase.log")
+	build_step 3 "$(echo {2..50})" ../makedep-qtbase.log ../makedep-qtbase.error
+
+	todo=("make -n MXE_TARGETS=\"$targets\" qttools | grep -o \"\[done\]\"" \
+	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) qttools 2> ../makedep-qttools.error 1> ../makedep-qttools.log")
+	build_step 5 "$(echo {50..75})" ../makedep-qtbase.log ../makedep-qtbase.error
+
+	todo=("make -n MXE_TARGETS=\"$targets\" curl | grep -o \"\[done\]\"" \
+	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) curl 2> ../makedep-cul.error 1> ../makedep-cul.log")
+	build_step 7 "$(echo {50..75})" ../makedep-curl.log ../makedep-curl.error
+fi
