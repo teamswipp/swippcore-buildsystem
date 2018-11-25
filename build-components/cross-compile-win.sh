@@ -47,15 +47,9 @@ if [ "$0" = "$BASH_SOURCE" ]; then
 	arg_target=$2
 fi
 
-PATH=$arg_mxe_path/usr/bin:$PATH
 PATH=$arg_mxe_path/usr/$arg_target/bin:$PATH
 MXE_INCLUDE_PATH=$arg_mxe_path/usr/$arg_target/include
 MXE_LIB_PATH=$arg_mxe_path/usr/$arg_target/lib
-
-if [ ! -d "$MXE_LIB_PATH" ]; then
-	echo ERROR: The directory $MXE_LIB_PATH does not exist
-	exit 1
-fi
 
 win_qmake() {
 	$2-qt5 \
