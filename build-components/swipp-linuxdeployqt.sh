@@ -42,7 +42,7 @@ mkdir -p $2.AppDir/usr/optional $2.AppDir/usr/optional/libstdc++
 cp $1/$2 $2.AppDir/usr/bin
 
 # Get and run linuxdeployqt
-wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+wget --quiet -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
 chmod a+x linuxdeployqt-continuous-x86_64.AppImage
 
 # Prepare AppDir
@@ -52,8 +52,8 @@ chmod a+x linuxdeployqt-continuous-x86_64.AppImage
 # Workaround to increase compatibility with older systems; see https://github.com/darealshinji/AppImageKit-checkrt for details
 rm $2.AppDir/AppRun
 cp /usr/lib/x86_64-linux-gnu/libstdc++.so.6 $2.AppDir/usr/optional/libstdc++/
-wget -c https://github.com/darealshinji/AppImageKit-checkrt/releases/download/continuous/exec-x86_64.so -O $2.AppDir/usr/optional/exec.so
-wget -c https://github.com/darealshinji/AppImageKit-checkrt/releases/download/continuous/AppRun-patched-x86_64 -O $2.AppDir/AppRun
+wget -quiet -c https://github.com/darealshinji/AppImageKit-checkrt/releases/download/continuous/exec-x86_64.so -O $2.AppDir/usr/optional/exec.so
+wget -quiet -c https://github.com/darealshinji/AppImageKit-checkrt/releases/download/continuous/AppRun-patched-x86_64 -O $2.AppDir/AppRun
 chmod a+x $2.AppDir/AppRun
 
 # Copy in desktop descriptor and icon
