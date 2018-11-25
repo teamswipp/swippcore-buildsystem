@@ -83,7 +83,7 @@ install_dependencies() {
 	fi
 }
 
-# percentage_so_far, logfile, errfile, logfile_max_len, jobs, pid
+# percentage_span, logfile, errfile, logfile_max_len, jobs, pid
 build_dialog() {
 	range=($1)
 	progress=$(eval "cat $2 | wc -l")
@@ -127,13 +127,33 @@ build_dialog() {
 	return $return_code
 }
 
+# step, percentage_span, logfile, errfile
+build_step() {
+	pjobs[$1]="_"
+	touch $3 $4
+
+	if [ -n "${todo[0]}" ] && [ "${todo[0]}" -eq "${todo[0]}" ] 2> /dev/null; then
+		todores="${todo[0]}"
+	else
+		todores=$(eval ${todo[0]} | wc -l)
+	fi
+
+	{
+		eval ${todo[1]}
+		return_code=$?
+	} &
+
+	build_dialog "$2" $3 $4 $todores $!
+	pjobs[$1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+}
+
 trap cleanup EXIT
 dialog --textbox build-components/welcome.txt 22 70
 choices=$(choose_flavours)
 
 if [[ $choices =~ "linux" ]]; then
 	title="Building Linux flavour"
-	pjobs=("Creating build files from QMAKE file"     _ \
+	pjobs=("Creating build files from QMAKE file"     8 \
 	       "Building native QT wallet"                8 \
 	       "Building native console wallet"           8 \
 	       "Generating cross-platform QT wallet"      8 \
@@ -145,48 +165,23 @@ if [[ $choices =~ "linux" ]]; then
 	                     qttools5-dev-tools
 	pushd build-linux
 	pushd swippcore
-	{
-		qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log
-		return_code=$?
-	} &
-	build_dialog "$(echo {0..5})" ../qmake.log ../qmake.error 6 $!
-	pjobs[1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	todo=(6 "qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log")
+	build_step 1 "$(echo {0..5})" ../qmake.log ../qmake.error
 
-	pjobs[3]="_"
 	share/genbuild.sh build/build.h
-	todo=$(make -n 2> /dev/null | wc -l)
-	{
-		make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log # Use half
-		return_code=$?
-	} &
-	build_dialog "$(echo {5..50})" ../make-qt.log ../make-qt.error $todo $!
-	pjobs[3]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	todo=("make -n 2> /dev/null" "make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log")
+	build_step 3 "$(echo {5..50})" ../make-qt.log ../make-qt.error
 
 	pushd src
-	pjobs[5]="_"
-	todo=$(make -n -f makefile.unix 2> /dev/null | grep "^\(cc\|g++\)" | wc -l)
-	{
-		make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log # Use half
-		return_code=$?
-	} &
-	build_dialog "$(echo {50..80})" ../../make-console.log ../../make-console.error $todo $!
-	pjobs[5]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	todo=("make -n -f makefile.unix 2> /dev/null | grep \"^\(cc\|g++\)\"" \
+	      "make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log")
+	build_step 5 "$(echo {50..80})" ../../make-console.log ../../make-console.error
 
 	popd
 	popd
-	pjobs[7]="_"
-	{
-		../build-components/swipp-linuxdeployqt.sh swippcore swipp-qt 2> linuxdeployqt-qt.log 1> /dev/null
-		return_code=$?
-	} &
-	build_dialog "$(echo {80..90})" linuxdeployqt-qt.log ".nolog" 85 $! # hard coded expected job size
-	pjobs[7]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	todo=(85 "../build-components/swipp-linuxdeployqt.sh swippcore swipp-qt 2> linuxdeployqt-qt.log 1> /dev/null")
+	build_step 7 "$(echo {80..90})" linuxdeployqt-qt.log linuxdeployqt-qt.error
 
-	pjobs[9]="_"
-	{
-		../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-console.log 1> /dev/null
-		return_code=$?
-	} &
-	build_dialog "$(echo {90..100})" linuxdeployqt-console.log ".nolog" 85 $! # hard coded expected job size
-	pjobs[9]=$(if (($? == 0)); then echo 3; else echo 1; fi)
+	todo=(85 "../build-components/swipp-linuxdeployqt.sh swippcore/src swippd 2> linuxdeployqt-console.log 1> /dev/null")
+	build_step 7 "$(echo {90..100})" linuxdeployqt-console.log linuxdeployqt-console.error
 fi
