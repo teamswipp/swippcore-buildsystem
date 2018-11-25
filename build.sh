@@ -63,6 +63,11 @@ clone() {
 	if [ ! -d "build-$1/$2" ]; then
 		clear
 		git clone $3 build-$1/$2
+
+		if (($? != 0)); then
+			dialog --msgbox "Failed to clone repository $3" 7 70
+			exit 1
+		fi
 	fi
 }
 
