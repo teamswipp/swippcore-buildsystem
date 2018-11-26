@@ -166,9 +166,7 @@ build_dialog() {
 		sleep 5
 
 		if [ -f "$3" ] && [ -s "$3" ]; then
-			# Includes some general cases we don't want to count as errors
-			if (( $(cat $3 | grep -v "Project MESSAGE: INFO:" | grep -v " Warning:" \
-			    | grep -v "^ar:" | wc -l) > 0 )); then
+			if (( $(cat $3 | grep -E "error|ERROR" | wc -l) > 0 )); then
 			    kill $6 &> /dev/null
 				return 1
 			fi
