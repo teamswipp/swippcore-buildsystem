@@ -224,7 +224,7 @@ if [[ $choices =~ "linux" ]]; then
 	todo=(6 "qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log")
 	build_step 1 "$(echo {0..5})" ../qmake.log ../qmake.error
 
-	share/genbuild.sh build/build.h
+	sh share/genbuild.sh build/build.h
 	todo=("make -n 2> /dev/null" "make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log")
 	build_step 3 "$(echo {5..50})" ../make-qt.log ../make-qt.error
 
