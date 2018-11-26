@@ -54,6 +54,49 @@ choose_flavours() {
 	return $?
 }
 
+version="none"
+
+choose_tags() {
+	if [ $version -ne "none" ]; then
+		return
+	fi
+
+	tags="$(git tag) master"
+
+	for i in $tags; do
+		if [ $i = "master" ]; then
+			tags_arguments=($i "Master version ($(git rev-parse --short master))" off "${tags_arguments[@]}")
+		else
+			tags_arguments=($i "Tagged release $i" off "${tags_arguments[@]}")
+		fi
+	done
+
+	tags_arguments[5]=on
+
+	dialog --stdout --radiolist "Please choose which versions of Swipp you would like to build:" \
+	       17 54 10 "${tags_arguments[@]}"
+
+	if [ $? -eq 1 ]; then
+		exit 0
+	fi
+
+	return $?
+}
+
+checkout() {
+	if [ $version -eq "none" ]; then
+		version=master
+	fi
+
+	clear
+	git checkout $version > /dev/null
+
+	if (($? != 0)); then
+		dialog --msgbox "Failed to check out $version in repository $3" 7 70
+		exit 1
+	fi
+}
+
 #buildir_name, clone_dir, repo
 clone() {
 	if [ ! -d "build-$1" ]; then
