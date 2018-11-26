@@ -41,7 +41,7 @@ cleanup() {
 choose_flavours() {
 	current_distro=$(lsb_release -d | sed 's/Description:\s//g')
 
-	dialog --stdout --checklist "Please choose which wallet versions of Swipp you would like to build:" \
+	dialog --stdout --checklist "Please choose which wallet flavour of Swipp you would like to build:" \
 	       12 60 4 linux "Linux [$current_distro]" 0 \
 	       osx   "MacOS X [10.11 (El Capitan)]" 0 \
 	       win32 "Windows [32 bit]" 0 \
@@ -211,12 +211,16 @@ if [[ $choices =~ "linux" ]]; then
 	       "Generating cross-platform QT wallet"      8 \
 	       "Generating cross-platform console wallet" 8)
 
-	clone linux swippcore $swipp_repo
 	install_dependencies build-essential make g++ libboost-all-dev libssl1.0-dev libdb5.3++-dev \
 	                     libminiupnpc-dev libz-dev libcurl4-openssl-dev qt5-default \
 	                     qttools5-dev-tools
+
+	clone linux swippcore $swipp_repo
 	pushd build-linux
 	pushd swippcore
+	version=$(choose_tags)
+	checkout
+
 	todo=(6 "qmake -Wnone swipp.pro 2> ../qmake.error 1> ../qmake.log")
 	build_step 1 "$(echo {0..5})" ../qmake.log ../qmake.error
 
@@ -246,8 +250,12 @@ if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
 	       "Building CURL dependency"           8)
 
 	clone win32 swippcore $swipp_repo
-	clone win32 mxe $mxe_repo
 	pushd build-win32
+	pushd swippcore
+	version=$(choose_tags)
+	checkout
+	popd
+	clone win32 mxe $mxe_repo
 	pushd mxe
 
 	arg_mxe_path=.
