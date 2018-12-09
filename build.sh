@@ -199,6 +199,20 @@ build_step() {
 	pjobs[$1]=$(if (($? == 0)); then echo 3; else echo 1; fi)
 }
 
+pjobs_result() {
+	failed="false"
+
+	for i in "${pjobs[@]}"; do
+		if [ "$i" -eq "$i" ] 2>/dev/null && [ "$i" -eq "1" ]; then
+			failed="true"
+		fi
+	done
+
+	if [ $failed == "false" ]; then
+		touch $1
+	fi
+}
+
 trap cleanup EXIT
 dialog --textbox build-components/welcome.txt 22 70
 choices=$(choose_flavours)
