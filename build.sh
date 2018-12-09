@@ -22,6 +22,8 @@
 # flavours.
 
 swipp_repo="https://github.com/teamswipp/swippcore.git"
+osxcross_repo="https://github.com/tpoechtrager/osxcross.git"
+osx_sdk="https://github.com/phracker/MacOSX-SDKs/releases/download/MacOSX10.11.sdk/MacOSX10.11.sdk.tar.xz"
 mxe_repo="https://github.com/mxe/mxe.git"
 return_code=0
 
@@ -84,12 +86,12 @@ choose_tags() {
 }
 
 checkout() {
-	if [ $version -eq "none" ]; then
+	if [ $version == "none" ]; then
 		version=master
 	fi
 
 	clear
-	git checkout $version > /dev/null
+	git checkout $version &> /dev/null
 
 	if (($? != 0)); then
 		dialog --msgbox "Failed to check out $version in repository $3" 7 70
@@ -292,4 +294,86 @@ if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
 	todo=("make -n MXE_TARGETS=\"$targets\" curl | grep -o \"\[done\]\"" \
 	      "make MXE_TARGETS=\"$targets\" -j$(($(nproc)/2)) curl 2> ../makedep-curl.error 1> ../makedep-curl.log")
 	build_step 7 "$(echo {80..100})" ../makedep-curl.log ../makedep-curl.error
+fi
+
+#apt-get install libc++-dev genisoimage
+
+if [[ $choices =~ "osx" ]]; then
+	title="Preparing MacOS X dependencies"
+	pjobs=("Building OSX cross toolchain" 8 \
+	       "Installing OpenSSL"           8 \
+	       "Installing BerkleyDB 5.3"     8 \
+	       "Installing MiniUPNPC"         8 \
+	       "Installing CURL"              8 \
+	       "Installing QT5"               8 \
+	       "Installing Boost"             8)
+
+	clone osx swippcore $swipp_repo
+	clone osx osxcross $osxcross_repo
+	pushd build-osx
+	pushd swippcore
+	checkout
+	popd
+	pushd osxcross
+
+	if [ ! -f ../.osx-prepared ]; then
+		pushd tarballs
+		wget --quiet -nc "$osx_sdk"
+		popd
+	fi
+
+	if [ ! -f ../.osx-prepared ]; then
+		# hard-coded 1000, no way to get the amount
+		todo=(1000 "UNATTENDED=1 JOBS=$(($(nproc)/2)) ./build.sh 2> ../makedep-toolchain.error 1> ../makedep-toolchain.log")
+		build_step 1 "$(echo {0..30})" ../makedep-toolchain.log ../makedep-toolchain.error
+		PATH=$PATH:$(pwd)/target/bin
+
+		# This configures the mirror
+		UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports search openssl &> /dev/null
+
+		todo=(10 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install openssl 2> ../pkg-openssl.error 1> ../pkg-openssl.log")
+		build_step 3 "$(echo {30..35})" ../pkg-openssl.log ../pkg-openssl.error
+
+		todo=(5 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install db53 2> ../pkg-db53.error 1> ../pkg-db53.log")
+		build_step 5 "$(echo {35..40})" ../pkg-db53.log ../pkg-db53.error
+
+		todo=(5 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install miniupnpc 2> ../pkg-miniupnpc.error 1> ../pkg-miniupnpc.log")
+		build_step 7 "$(echo {40..45})" ../pkg-miniupnpc.log ../pkg-miniupnpc.error
+
+		todo=(63 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install curl 2> ../pkg-curl.error 1> ../pkg-curl.log")
+		build_step 9 "$(echo {45..50})" ../pkg-curl.log ../pkg-curl.error
+
+		todo=(319 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install qt57 2> ../pkg-qt57.error 1> ../pkg-qt57.log")
+		build_step 11 "$(echo {50..90})" ../pkg-qt57.log ../pkg-qt57.error
+
+		todo=(12 "UNATTENDED=1 MACOSX_DEPLOYMENT_TARGET=10.11 osxcross-macports install boost 2> ../pkg-boost.error 1> ../pkg-boost.log")
+		build_step 13 "$(echo {90..100})" ../pkg-boost.log ../pkg-boost.error
+
+		pjobs_result ../.osx-prepared
+	fi
+
+	popd
+	pushd swippcore
+
+	title="Building MacOS X flavour"
+	pjobs=("Creating build files from QMAKE file" 8 \
+	       "Building native QT wallet"            8 \
+	       "Generating DMG archive"               8)
+
+	todo=(6 "unshare -r -m sh -c \"mount --bind $(pwd)/../../build-components/qmake.conf /usr/lib/x86_64-linux-gnu/qt5/mkspecs/macx-clang/qmake.conf; CUSTOM_SDK_PATH=$(pwd)/../osxcross/target/SDK/MacOSX10.11.sdk CUSTOM_MIN_DEPLOYMENT_TARGET=10.11 qmake -spec macx-clang QMAKE_DEFAULT_INCDIRS=\"\" QMAKE_CC=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang QMAKE_CXX=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang++-libc++ QMAKE_LINK=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang++-libc++ BOOST_INCLUDE_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/include/ BOOST_LIB_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/lib/ BOOST_LIB_SUFFIX=-mt BDB_INCLUDE_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/include/db53/ BDB_LIB_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/lib/db53/ BDB_LIB_SUFFIX=-5.3 swipp.pro 2> ../qmake.error 1> ../qmake.log\"")
+	build_step 1 "$(echo {0..5})" ../qmake.log ../qmake.error
+
+	sed -i 's/\/usr\/include\/x86_64-linux-gnu\/qt5/..\/osxcross\/target\/macports\/pkgs\/opt\/local\/libexec\/qt5\/include/g' Makefile
+	sed -i 's/-o build\/moc_bitcoingui.cpp/-DQ_OS_MAC -o build\/moc_bitcoingui.cpp/g' Makefile
+	sed -i 's/ -L\/usr\/lib\/x86_64-linux-gnu//g' Makefile
+	sed -i 's/ -lQt5PrintSupport//g' Makefile
+	sed -i 's/ -lQt5Widgets//g' Makefile
+	sed -i 's/ -lQt5Gui//g' Makefile
+	sed -i 's/ -lQt5Network//g' Makefile
+	sed -i 's/ -lQt5Core//g' Makefile
+	ln -s /usr/include/c++/v1 $(pwd)/../osxcross/target/SDK/MacOSX10.11.sdk/usr/include/c++/v1 &> /dev/null
+
+	sh share/genbuild.sh build/build.h
+	todo=("TARGET_OS=Darwin make -n 2> /dev/null" "TARGET_OS=Darwin make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log")
+	build_step 3 "$(echo {5..90})" ../make-qt.log ../make-qt.error
 fi
