@@ -57,15 +57,15 @@ choose_flavours() {
 version="none"
 
 choose_tags() {
-	if [ $version -ne "none" ]; then
+	if [ $version != "none" ]; then
 		return
 	fi
 
-	tags="$(git tag) master"
+	tags="$(git ls-remote --tags $swipp_repo | sed -n 's_^.*/\([^/}]*\)$_\1_p') master"
 
 	for i in $tags; do
 		if [ $i = "master" ]; then
-			tags_arguments=($i "Master version ($(git rev-parse --short master))" off "${tags_arguments[@]}")
+			tags_arguments=($i "Master version ($(git ls-remote $swipp_repo | grep master | cut -f1 | cut -b 1-7))" off "${tags_arguments[@]}")
 		else
 			tags_arguments=($i "Tagged release $i" off "${tags_arguments[@]}")
 		fi
@@ -216,6 +216,7 @@ pjobs_result() {
 trap cleanup EXIT
 dialog --textbox build-components/welcome.txt 22 70
 choices=$(choose_flavours)
+version=$(choose_tags)
 
 if [[ $choices =~ "linux" ]]; then
 	title="Building Linux flavour"
@@ -266,7 +267,6 @@ if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
 	clone win32 swippcore $swipp_repo
 	pushd build-win32
 	pushd swippcore
-	version=$(choose_tags)
 	checkout
 	popd
 	clone win32 mxe $mxe_repo
