@@ -250,6 +250,7 @@ if [[ $choices =~ "linux" ]]; then
 	todo=("make -n -f makefile.unix 2> /dev/null | grep \"^\(cc\|g++\)\"" \
 	      "make -j$(($(nproc)/2)) -f makefile.unix 2> ../../make-console.error 1> ../../make-console.log")
 	build_step 5 "$(echo {50..80})" ../../make-console.log ../../make-console.error
+	strip swippd
 
 	popd
 	popd
