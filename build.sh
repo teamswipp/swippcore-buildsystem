@@ -24,6 +24,7 @@
 swipp_repo="https://github.com/teamswipp/swippcore.git"
 osxcross_repo="https://github.com/tpoechtrager/osxcross.git"
 osx_sdk="https://github.com/phracker/MacOSX-SDKs/releases/download/MacOSX10.11.sdk/MacOSX10.11.sdk.tar.xz"
+hfsplus_repo="https://github.com/andreas56/libdmg-hfsplus.git"
 mxe_repo="https://github.com/mxe/mxe.git"
 return_code=0
 
@@ -296,7 +297,7 @@ if [[ $choices =~ "win32" || $choices =~ "win64" ]]; then
 	build_step 7 "$(echo {80..100})" ../makedep-curl.log ../makedep-curl.error
 fi
 
-#apt-get install libc++-dev genisoimage
+# apt-get install libc++-dev libbz2-dev hfsprogs
 
 if [[ $choices =~ "osx" ]]; then
 	title="Preparing MacOS X dependencies"
@@ -310,6 +311,8 @@ if [[ $choices =~ "osx" ]]; then
 
 	clone osx swippcore $swipp_repo
 	clone osx osxcross $osxcross_repo
+	clone osx libdmg-hfsplus $hfsplus_repo
+
 	pushd build-osx
 	pushd swippcore
 	checkout
@@ -358,6 +361,9 @@ if [[ $choices =~ "osx" ]]; then
 	title="Building MacOS X flavour"
 	pjobs=("Creating build files from QMAKE file" 8 \
 	       "Building native QT wallet"            8 \
+	       "Preparing libdmg-hfsplus"             8 \
+	       "Building libdmg-hfsplus"              8 \
+	       "Preparing DMG archive"                8 \
 	       "Generating DMG archive"               8)
 
 	todo=(6 "unshare -r -m sh -c \"mount --bind $(pwd)/../../build-components/qmake.conf /usr/lib/x86_64-linux-gnu/qt5/mkspecs/macx-clang/qmake.conf; CUSTOM_SDK_PATH=$(pwd)/../osxcross/target/SDK/MacOSX10.11.sdk CUSTOM_MIN_DEPLOYMENT_TARGET=10.11 qmake -spec macx-clang QMAKE_DEFAULT_INCDIRS=\"\" QMAKE_CC=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang QMAKE_CXX=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang++-libc++ QMAKE_LINK=$(pwd)/../osxcross/target/bin/x86_64-apple-darwin15-clang++-libc++ BOOST_INCLUDE_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/include/ BOOST_LIB_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/lib/ BOOST_LIB_SUFFIX=-mt BDB_INCLUDE_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/include/db53/ BDB_LIB_PATH=$(pwd)/../osxcross/target/macports/pkgs/opt/local/lib/db53/ BDB_LIB_SUFFIX=-5.3 swipp.pro 2> ../qmake.error 1> ../qmake.log\"")
@@ -375,5 +381,22 @@ if [[ $choices =~ "osx" ]]; then
 
 	sh share/genbuild.sh build/build.h
 	todo=("TARGET_OS=Darwin make -n 2> /dev/null" "TARGET_OS=Darwin make -j$(($(nproc)/2)) 2> ../make-qt.error 1> ../make-qt.log")
-	build_step 3 "$(echo {5..90})" ../make-qt.log ../make-qt.error
+	build_step 3 "$(echo {5..75})" ../make-qt.log ../make-qt.error
+
+	popd
+	pushd libdmg-hfsplus
+
+	todo=(22 "cmake . 2> ../cmake-libdmg-hfsplus.error 1> ../cmake-libdmg-hfsplus.log")
+	build_step 5 "$(echo {75..80})" ../cmake-libdmg-hfsplus.log ../cmake-libdmg-hfsplus.error
+
+	todo=(37 "make -j$(($(nproc)/2)) 2> ../make-libdmg-hfsplus.error 1> ../make-libdmg-hfsplus.log")
+	build_step 7 "$(echo {80..85})" ../make-libdmg-hfsplus.log ../make-libdmg-hfsplus.error
+
+	popd
+
+	todo(99 "unshare -r -m sh -c \"mount --bind osxcross/target/macports/pkgs/opt /opt; INSTALLNAMETOOL=osxcross/target/bin/x86_64-apple-darwin15-install_name_tool OTOOL=osxcross/target/bin/x86_64-apple-darwin15-otool STRIP=osxcross/target/bin/x86_64-apple-darwin15-strip ../build-components/macdeployqtplus -verbose 2 swippcore/Swipp-Qt.app -add-resources swippcore/src/qt/locale\"")
+	build_step 9 "$(echo {85..90})" macdeployqtplus.log macdeployqtplus.error
+
+	todo(1385 "PATH=$PATH:$(pwd)/libdmg-hfsplus/dmg:$(pwd)/libdmg-hfsplus/hfs ../build-components/create-dmg.sh dist/Swipp-Qt.app swipp-master")
+	build_step 11 "$(echo {90..100})" create-dmg.log create-dmg.error
 fi
